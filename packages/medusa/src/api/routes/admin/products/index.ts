@@ -74,7 +74,7 @@ export const defaultAdminProductRelations = [
   "collection",
 ]
 
-export const defaultAdminProductFields = [
+export const defaultAdminProductFields: (keyof Product)[] = [
   "id",
   "title",
   "subtitle",
@@ -102,10 +102,7 @@ export const defaultAdminProductFields = [
   "metadata",
 ]
 
-export const defaultAdminGetProductsVariantsFields = [
-  "id",
-  "product_id"
-]
+export const defaultAdminGetProductsVariantsFields = ["id", "product_id"]
 
 export const allowedAdminProductFields = [
   "id",
