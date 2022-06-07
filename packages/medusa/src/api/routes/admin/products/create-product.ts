@@ -372,7 +372,7 @@ class ProductVariantReq {
 
   @IsObject()
   @IsOptional()
-  metadata?: object
+  metadata?: Record<string, unknown>
 
   @IsArray()
   @ValidateNested({ each: true })
@@ -481,5 +481,5 @@ export class AdminPostProductsReq {
 
   @IsObject()
   @IsOptional()
-  metadata?: object
+  metadata?: Record<string, unknown>
 }
