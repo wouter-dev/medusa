@@ -24,6 +24,7 @@ import {
 } from "../types/product"
 import { buildQuery, setMetadata, validateId } from "../utils"
 import { formatException } from "../utils/exception-formatter"
+import { omitRelationIfExists } from "../utils/omit-relation-if-exists"
 import EventBusService from "./event-bus"
 import ProductCollectionService from "./product-collection"
 import ProductVariantService from "./product-variant"
@@ -156,27 +157,27 @@ class ProductService extends TransactionBaseService<ProductService> {
     return await this.atomicPhase_(async (manager) => {
       const productRepo = manager.getCustomRepository(this.productRepository_)
 
-      const priceIndex = config.relations?.indexOf("variants.prices") ?? -1
-      if (priceIndex >= 0 && config.relations) {
-        config.relations = [...config.relations]
-        config.relations.splice(priceIndex, 1)
-      }
-
       const { q, query, relations } = this.prepareListQuery_(selector, config)
+
+      const [filteredRelations, shouldLoadStrategyPrices] =
+        this.omitPriceRelationIfExists_(relations)
 
       if (q) {
         const [products] = await productRepo.getFreeTextSearchResultsAndCount(
           q,
           query,
-          relations
+          filteredRelations
         )
 
         return products
       }
 
-      const products = await productRepo.findWithRelations(relations, query)
+      const products = await productRepo.findWithRelations(
+        filteredRelations,
+        query
+      )
 
-      return priceIndex > -1
+      return shouldLoadStrategyPrices
         ? await this.setAdditionalPrices(products, {
             cart_id: config.cart_id,
             currency_code: config.currency_code,
@@ -186,6 +187,22 @@ class ProductService extends TransactionBaseService<ProductService> {
           })
         : products
     })
+  }
+
+  /**
+   * Removes the price relation from a relations array
+   * @param relations relations array from which the prices relation should be removed
+   * @returns a tuple containing the new relations and a boolean indicating whether the price relation was found or not
+   */
+  private omitPriceRelationIfExists_(
+    relations?: string[]
+  ): [string[], boolean] {
+    if (!relations || !relations.length) {
+      return [[], false]
+    }
+    const PRICES_RELATION = "variants.prices"
+
+    return omitRelationIfExists(relations, PRICES_RELATION)
   }
 
   /**
@@ -211,13 +228,10 @@ class ProductService extends TransactionBaseService<ProductService> {
     return await this.atomicPhase_(async (manager) => {
       const productRepo = manager.getCustomRepository(this.productRepository_)
 
-      const priceIndex = config.relations?.indexOf("variants.prices") ?? -1
-      if (priceIndex >= 0 && config.relations) {
-        config.relations = [...config.relations]
-        config.relations.splice(priceIndex, 1)
-      }
-
       const { q, query, relations } = this.prepareListQuery_(selector, config)
+
+      const [filteredRelations, shouldLoadStrategyPrices] =
+        this.omitPriceRelationIfExists_(relations)
 
       let products
       let count
@@ -225,16 +239,16 @@ class ProductService extends TransactionBaseService<ProductService> {
         ;[products, count] = await productRepo.getFreeTextSearchResultsAndCount(
           q,
           query,
-          relations
+          filteredRelations
         )
       } else {
         ;[products, count] = await productRepo.findWithRelationsAndCount(
-          relations,
+          filteredRelations,
           query
         )
       }
 
-      if (priceIndex > -1) {
+      if (shouldLoadStrategyPrices) {
         const productsWithAdditionalPrices = await this.setAdditionalPrices(
           products,
           {
@@ -277,21 +291,23 @@ class ProductService extends TransactionBaseService<ProductService> {
    */
   async retrieve(
     productId: string,
-    config: FindProductConfig = { include_discount_prices: false }
+    config: FindProductConfig = {
+      include_discount_prices: false,
+    }
   ): Promise<Product> {
     return await this.atomicPhase_(async (manager) => {
       const productRepo = manager.getCustomRepository(this.productRepository_)
       const validatedId = validateId(productId)
 
-      const priceIndex = config.relations?.indexOf("variants.prices") ?? -1
-      if (priceIndex >= 0 && config.relations) {
-        config.relations = [...config.relations]
-        config.relations.splice(priceIndex, 1)
-      }
-
       const { relations, ...query } = buildQuery({ id: validatedId }, config)
 
-      const product = await productRepo.findOneWithRelations(relations, query)
+      const [filteredRelations, shouldLoadStrategyPrices] =
+        this.omitPriceRelationIfExists_(relations)
+
+      const product = await productRepo.findOneWithRelations(
+        filteredRelations,
+        query
+      )
 
       if (!product) {
         throw new MedusaError(
@@ -300,7 +316,7 @@ class ProductService extends TransactionBaseService<ProductService> {
         )
       }
 
-      return priceIndex > -1
+      return shouldLoadStrategyPrices
         ? await this.setAdditionalPrices(product, {
             cart_id: config.cart_id,
             currency_code: config.currency_code,
@@ -326,18 +342,18 @@ class ProductService extends TransactionBaseService<ProductService> {
     return await this.atomicPhase_(async (manager) => {
       const productRepo = manager.getCustomRepository(this.productRepository_)
 
-      const priceIndex = config.relations?.indexOf("variants.prices") ?? -1
-      if (priceIndex >= 0 && config.relations) {
-        config.relations = [...config.relations]
-        config.relations.splice(priceIndex, 1)
-      }
-
       const { relations, ...query } = buildQuery(
         { handle: productHandle },
         config
       )
 
-      const product = await productRepo.findOneWithRelations(relations, query)
+      const [filteredRelations, shouldLoadStrategyPrices] =
+        this.omitPriceRelationIfExists_(relations)
+
+      const product = await productRepo.findOneWithRelations(
+        filteredRelations,
+        query
+      )
 
       if (!product) {
         throw new MedusaError(
@@ -346,7 +362,7 @@ class ProductService extends TransactionBaseService<ProductService> {
         )
       }
 
-      return priceIndex > -1
+      return shouldLoadStrategyPrices
         ? await this.setAdditionalPrices(product, {
             cart_id: config.cart_id,
             currency_code: config.currency_code,
@@ -372,18 +388,18 @@ class ProductService extends TransactionBaseService<ProductService> {
     return await this.atomicPhase_(async (manager) => {
       const productRepo = manager.getCustomRepository(this.productRepository_)
 
-      const priceIndex = config.relations?.indexOf("variants.prices") ?? -1
-      if (priceIndex >= 0 && config.relations) {
-        config.relations = [...config.relations]
-        config.relations.splice(priceIndex, 1)
-      }
-
       const { relations, ...query } = buildQuery(
         { external_id: externalId },
         config
       )
 
-      const product = await productRepo.findOneWithRelations(relations, query)
+      const [filteredRelations, shouldLoadStrategyPrices] =
+        this.omitPriceRelationIfExists_(relations)
+
+      const product = await productRepo.findOneWithRelations(
+        filteredRelations,
+        query
+      )
 
       if (!product) {
         throw new MedusaError(
@@ -392,7 +408,7 @@ class ProductService extends TransactionBaseService<ProductService> {
         )
       }
 
-      return priceIndex > -1
+      return shouldLoadStrategyPrices
         ? await this.setAdditionalPrices(product, {
             cart_id: config.cart_id,
             currency_code: config.currency_code,
@@ -921,46 +937,6 @@ class ProductService extends TransactionBaseService<ProductService> {
         .emit(ProductService.Events.UPDATED, product)
       return product
     })
-  }
-
-  /**
-   * Decorates a product with product variants.
-   * @param productId - the productId to decorate.
-   * @param fields - the fields to include.
-   * @param expandFields - fields to expand.
-   * @param config - retrieve config for price calculation.
-   * @return return the decorated product.
-   */
-  async decorate(
-    productId: string,
-    fields: (keyof Product)[] = [],
-    expandFields: string[] = [],
-    config: FindProductConfig = {}
-  ): Promise<Product> {
-    const requiredFields: (keyof Product)[] = ["id", "metadata"]
-
-    const priceIndex = expandFields.indexOf("variants.prices") ?? -1
-    if (priceIndex >= 0 && expandFields.length) {
-      expandFields = [...expandFields]
-      expandFields.splice(priceIndex, 1)
-    }
-
-    fields = fields.concat(requiredFields)
-
-    const product = await this.retrieve(productId, {
-      select: fields,
-      relations: expandFields,
-    })
-
-    return priceIndex > -1
-      ? await this.setAdditionalPrices(product, {
-          cart_id: config.cart_id,
-          currency_code: config.currency_code,
-          customer_id: config.customer_id,
-          include_discount_prices: config.include_discount_prices,
-          region_id: config.region_id,
-        })
-      : product
   }
 
   /**
