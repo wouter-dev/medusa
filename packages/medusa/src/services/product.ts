@@ -471,7 +471,7 @@ class ProductService extends TransactionBaseService<ProductService> {
 
       const { options, tags, type, images, ...rest } = productObject
 
-      if (!rest.thumbnail && images && images.length) {
+      if (!rest.thumbnail && images?.length) {
         rest.thumbnail = images[0]
       }
 
@@ -483,11 +483,11 @@ class ProductService extends TransactionBaseService<ProductService> {
       try {
         let product = productRepo.create(rest)
 
-        if (images) {
+        if (images?.length) {
           product.images = await imageRepo.upsertImages(images)
         }
 
-        if (tags) {
+        if (tags?.length) {
           product.tags = await productTagRepo.upsertTags(tags)
         }
 
@@ -557,7 +557,7 @@ class ProductService extends TransactionBaseService<ProductService> {
         product.thumbnail = images[0]
       }
 
-      if (images) {
+      if (images?.length) {
         product.images = await imageRepo.upsertImages(images)
       }
 
@@ -569,7 +569,7 @@ class ProductService extends TransactionBaseService<ProductService> {
         product.type_id = (await productTypeRepo.upsertType(type))?.id || null
       }
 
-      if (tags) {
+      if (tags?.length) {
         product.tags = await productTagRepo.upsertTags(tags)
       }
 
